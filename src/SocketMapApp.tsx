@@ -1,11 +1,9 @@
-
 import { WebSocketProvider } from "./context/WebSocketContext";
 import { MapPage } from "./pages/MapPage";
 
 function SocketMapApp() {
   return (
-    <WebSocketProvider url="ws://localhost:3200">
-
+    <WebSocketProvider url={import.meta.env.VITE_WS_URL}>
       <MapPage />
     </WebSocketProvider>
   );

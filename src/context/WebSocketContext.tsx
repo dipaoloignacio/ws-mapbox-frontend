@@ -16,7 +16,6 @@ type ConnectionStatus =
   | "disconnected"
   | "error";
 
-// Tipados específicos
 export type SocketMessage =
   | {
       type: "CLIENT_REGISTER";
@@ -62,34 +61,46 @@ export const WebSocketProvider = ({ children, url }: Props) => {
   const [status, setStatus] = useState<ConnectionStatus>("offline");
   const [socketId, setSocketId] = useState<string | null>(null);
   const socket = useRef<WebSocket | null>(null);
+  const shouldReconnectRef = useRef(false);
 
-  const shouldReconnectRef = useRef(true);
+  // Guardamos name/color/coords para reconexión
+  const credentialsRef = useRef<{ name: string; color: string; latLng: LatLng } | null>(null);
+
   const disconnect = () => {
+    shouldReconnectRef.current = false;
     socket.current?.close();
     socket.current = null;
-    shouldReconnectRef.current = false;
     setStatus("offline");
   };
 
-  const connect = useCallback(() => {
+  const connect = useCallback((name: string, color: string, latLng: LatLng) => {
     if (connecting) return;
     connecting = true;
     setStatus("connecting");
-    const ws = new WebSocket(url);
-    shouldReconnectRef.current = true;
+
+    const params = new URLSearchParams({
+      name,
+      color,
+      coords: JSON.stringify(latLng),
+    });
+
+    const ws = new WebSocket(`${url}?${params.toString()}`);
 
     ws.addEventListener("open", () => {
       socket.current = ws;
+      connecting = false;
       setStatus("connected");
     });
 
     ws.addEventListener("close", () => {
       socket.current = null;
+      connecting = false;
       setStatus("disconnected");
     });
 
     ws.addEventListener("error", (event) => {
       console.log({ customError: event });
+      connecting = false;
     });
 
     ws.addEventListener("message", (event) => {
@@ -99,7 +110,6 @@ export const WebSocketProvider = ({ children, url }: Props) => {
           setSocketId(message.payload.clientId);
         }
         messageListenersRef.forEach((listener) => listener(message));
-        console.log({ message });
       } catch (error) {}
     });
 
@@ -111,50 +121,47 @@ export const WebSocketProvider = ({ children, url }: Props) => {
     Cookie.set("name", name);
     Cookie.set("color", color);
     Cookie.set("coords", JSON.stringify(latLng));
-    connect();
+    credentialsRef.current = { name, color, latLng };
+    shouldReconnectRef.current = true;
+    connect(name, color, latLng);
   };
 
   const suscribeToMessage = (listener: SocketMessageListener) => {
     messageListenersRef.add(listener);
-
     return () => {
       messageListenersRef.delete(listener);
     };
   };
-  // Función básica de re-conexión
+
+  // Reconexión automática
   useEffect(() => {
     if (!shouldReconnectRef.current) return;
+    if (status !== "disconnected") return;
+    if (!credentialsRef.current) return;
 
     let interval: ReturnType<typeof setInterval>;
-    if (status === "disconnected") {
-      interval = setInterval(() => {
-        console.log("Reconnecting every 1 second...");
-        connect();
-      }, 1000);
-    }
+    interval = setInterval(() => {
+      console.log("Reconnecting every 1 second...");
+      const { name, color, latLng } = credentialsRef.current!;
+      connect(name, color, latLng);
+    }, 1000);
 
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
+    return () => clearInterval(interval);
   }, [status, connect]);
 
   const send = (message: SocketMessage) => {
     if (!socket.current) throw new Error("Socket not connected");
-
-    const jsonMessage = JSON.stringify(message);
-    socket.current?.send(jsonMessage);
+    socket.current.send(JSON.stringify(message));
   };
 
   return (
     <WebSocketContext
       value={{
-        status: status,
-        send: send,
-        connectToServer: connectToServer,
-        disconnect: disconnect,
-        socketId: socketId,
+        status,
+        send,
+        connectToServer,
+        disconnect,
+        socketId,
         suscribeToMessage,
       }}
     >

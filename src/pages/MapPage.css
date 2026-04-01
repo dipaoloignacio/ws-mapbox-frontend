@@ -1,0 +1,42 @@
+.map-container {
+  width: 100vw;
+  height: 100vh;
+  background-color: #444;
+}
+
+.user-info {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 10px;
+  border-radius: 5px;
+  color: white;
+}
+
+.user-info p{
+  color: white;
+}
+
+h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: black;
+  text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff,
+    1px 1px 0 #fff;
+}
+
+p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  color: black;
+}
+
+.mapboxgl-popup-close-button {
+  display: none;
+}
